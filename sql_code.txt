@@ -1,0 +1,143 @@
+QUERY LIST
+-- Query combined all the datasets together.
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2022_04`
+UNION ALL
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2022_03`
+UNION ALL
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2022_02`
+UNION ALL
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2022_01`
+UNION ALL
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2021_12`
+UNION ALL
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2021_11`
+UNION ALL
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2021_10`
+UNION ALL
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2021_09`
+UNION ALL
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2021_08`
+UNION ALL
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2021_07`
+UNION ALL
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2021_06`
+UNION ALL
+SELECT *
+FROM `cyclistic-cole-g.rider_data.2021_05`;
+
+Cleaning Stage
+--Deleted invalid type of bike
+DELETE FROM `cyclistic-cole-g.rider_data.aggregate_data`
+
+WHERE
+  rideable_type = 'docked_bike';
+
+
+--Removes rows with Null Station Data 
+DELETE FROM `cyclistic-cole-g.rider_data.aggregate_data`
+
+WHERE
+  start_station_name IS NULL OR
+  start_station_id IS NULL OR
+  end_station_name IS NULL OR
+  end_station_id IS NULL;
+
+--Gives ride_id and number of times it occured
+SELECT 
+DISTINCT ride_id, COUNT(*) AS Number_of_Duplicates
+FROM `cyclistic-cole-g.rider_data.aggregate_data`
+GROUP BY 
+ride_id;
+
+--This table give us the final cleaned data set and removes duplicat ride_ids. TRIM removes leading and trailing spaces from strings.
+CREATE TABLE rider_data.aggregate_data_cleaned_1 AS
+SELECT DISTINCT(ride_id),
+  TRIM(rideable_type) AS rideable_type,
+  started_at,
+  ended_at,
+  day_of_week,
+  TRIM(start_station_name) AS start_station_name,
+  TRIM(start_station_id) AS start_station_id,
+  TRIM(end_station_name) AS end_station_name,
+  TRIM(end_station_id) AS end_station_id,
+  start_lat,
+  start_lng,
+  end_lat,
+  end_lng,
+  TRIM(member_casual) AS member_casual
+FROM `cyclistic-cole-g.rider_data.aggregate_data`;
+
+Analysis stage
+--Gives the length of ride per month split between members and casual
+SELECT 
+  EXTRACT(MONTH FROM started_at) AS Month,
+  member_casual,
+  round(avg(DATE_DIFF(ended_at, started_at, minute)),2) AS average_ride_duration
+FROM `cyclistic-cole-g.rider_data.aggregate_data_cleaned_1`
+GROUP BY 
+  member_casual,
+  Month
+ORDER BY 
+  Month;
+
+--Gives bike usage per month for members and casual rides
+SELECT 
+  EXTRACT(MONTH FROM started_at) AS Month,
+  rideable_type,
+  COUNT(member_casual) AS Number_Per_Month,
+  member_casual
+FROM `cyclistic-cole-g.rider_data.aggregate_data_cleaned_1`
+GROUP BY
+  rideable_type,
+  Month,
+  member_casual
+ORDER BY
+  Month;
+
+ --Rides per day of the week. 1 stands for Monday and 7 stands for Sunday.
+SELECT 
+  count(ride_id) AS Day_of_Week_Count,
+  day_of_week,
+  member_casual
+FROM `cyclistic-cole-g.rider_data.aggregate_data_cleaned_1` 
+Group BY
+  day_of_week,
+  member_casual
+
+-- This query give the count of start station name as well as the long and lat data for these stations. The having function gets rid of data where Count_of_Start_Station isn’t greater than 1.
+SELECT 
+  count(start_station_name) AS Count_of_Start_Station,
+  start_station_name,
+  start_lat,
+  start_lng
+FROM `cyclistic-cole-g.rider_data.aggregate_data_cleaned_1` 
+GROUP BY
+  start_station_name,
+  start_lat,
+  start_lng
+HAVING Count_of_Start_Station >1;
+
+-- This query give the count of end station name as well as the long and lat data for these stations. The having function gets rid of data where Count_of_End_Station isn’t greater than 1.
+SELECT 
+  count(end_station_name) AS Count_of_End_Station,
+  end_station_name,
+  end_lat,
+  end_lng
+FROM `cyclistic-cole-g.rider_data.aggregate_data_cleaned_1` 
+GROUP BY
+  end_station_name,
+  end_lat,
+  end_lng
+HAVING Count_of_End_Station >1;
+
